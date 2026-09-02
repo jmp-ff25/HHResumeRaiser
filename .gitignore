@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# HHResumeRaiser local state and credentials
+.hh-resume-raiser/
+hh-credentials.ini
