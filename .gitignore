@@ -220,3 +220,10 @@ __marimo__/
 # HHResumeRaiser local state and credentials
 .hh-resume-raiser/
 hh-credentials.ini
+
+# Browser research artifacts (never commit profiles, traces or DOM snapshots)
+research-artifacts/
+playwright-report/
+test-results/
+*.trace.zip
+*.har

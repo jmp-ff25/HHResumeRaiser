@@ -1,0 +1,17 @@
+SEARCH_URL = "https://hh.ru/search/vacancy"
+PROFILE_URL = "https://hh.ru/applicant/profile/me"
+
+SEARCH_INPUT = '[data-qa="search-input"]'
+SEARCH_BUTTON = '[data-qa="search-button"]'
+VACANCY_CARD = '[data-qa="vacancy-serp__vacancy"]'
+VACANCY_TITLE_LINK = '[data-qa="serp-item__title"]'
+VACANCY_HEADING = '[data-qa="vacancy-title"]'
+VACANCY_DESCRIPTION = '[data-qa="vacancy-description"]'
+RESPOND_BUTTON = '[data-qa*="vacancy-response"]'
+
+RESUME_CARD = '[data-qa="resume"]'
+RESUME_UPDATE_BUTTON = '[data-qa~="resume-update-button"]'
+PROFILE_EXPERIENCE = '[data-qa="profile-experience-card"]'
+PROFILE_EDUCATION = '[data-qa="profile-education-card"]'
+PROFILE_LANGUAGE = '[data-qa="profile-language-card"]'
+RESUME_RECOMMENDATION = '[data-qa^="resume-recommendation"]'

@@ -33,3 +33,28 @@ class CliTests(unittest.TestCase):
     def test_page_refresh_timeout_must_be_positive(self) -> None:
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
             build_parser().parse_args(["--page-refresh-seconds", "0"])
+
+    def test_legacy_mode_remains_default(self) -> None:
+        args = build_parser().parse_args([])
+        self.assertFalse(args.full_activity)
+
+    def test_full_activity_options_are_parsed(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--full-activity",
+                "--vacancies-per-cycle",
+                "3",
+                "--search-scrolls",
+                "4",
+                "--vacancy-view-seconds",
+                "8.5",
+            ]
+        )
+        self.assertTrue(args.full_activity)
+        self.assertEqual(args.vacancies_per_cycle, 3)
+        self.assertEqual(args.search_scrolls, 4)
+        self.assertEqual(args.vacancy_view_seconds, 8.5)
+
+    def test_activity_limits_are_bounded(self) -> None:
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(["--vacancies-per-cycle", "11"])

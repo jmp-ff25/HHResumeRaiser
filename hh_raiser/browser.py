@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import re
+import signal
+import threading
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit, urlunsplit
 
 from hh_raiser.credentials import normalize_russian_phone, resolve_credentials
+from hh_raiser.infrastructure.browser.page_state_reader import redact_url
 from hh_raiser.logging_config import LOGGER
 from hh_raiser.models import (
     MOSCOW,
@@ -220,11 +222,6 @@ def wait_for_recognized_state(
         page.reload(wait_until="domcontentloaded")
 
 
-def redact_url(url: str) -> str:
-    parts = urlsplit(url)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
-
-
 class NetworkCapture:
     def __init__(self) -> None:
         self.enabled = False
@@ -239,12 +236,24 @@ class NetworkCapture:
 
 
 def close_context_quietly(context: BrowserContext) -> None:
+    previous_sigint_handler = None
+    if threading.current_thread() is threading.main_thread():
+        previous_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         context.close()
+    except KeyboardInterrupt:
+        LOGGER.debug("Browser shutdown was interrupted; continuing process cleanup.")
     except Exception as error:
-        is_closed = error.__class__.__name__ == "TargetClosedError" or any(
-            marker in str(error).lower() for marker in _CLOSED_PLAYWRIGHT_ERROR_MARKERS
-        )
-        if not is_closed:
+        if not is_closed_playwright_error(error):
             raise
         LOGGER.debug("Browser context was already closed during shutdown: %s", error)
+    finally:
+        if previous_sigint_handler is not None:
+            signal.signal(signal.SIGINT, previous_sigint_handler)
+
+
+def is_closed_playwright_error(error: BaseException) -> bool:
+    return error.__class__.__name__ == "TargetClosedError" or any(
+        marker in str(error).lower() for marker in _CLOSED_PLAYWRIGHT_ERROR_MARKERS
+    )

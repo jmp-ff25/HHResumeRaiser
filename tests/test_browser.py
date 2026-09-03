@@ -6,6 +6,7 @@ from unittest.mock import patch
 from hh_raiser.browser import (
     choose_login_action,
     close_context_quietly,
+    is_closed_playwright_error,
     read_page_state,
     wait_for_profile_raise_state,
 )
@@ -100,3 +101,14 @@ class BrowserTests(unittest.TestCase):
                 raise RuntimeError(": Connection closed while reading from the driver")
 
         close_context_quietly(DisconnectedContext())
+
+    def test_keyboard_interrupt_during_close_is_suppressed(self) -> None:
+        class InterruptedContext:
+            def close(self) -> None:
+                raise KeyboardInterrupt
+
+        close_context_quietly(InterruptedContext())
+
+    def test_closed_playwright_error_is_recognized_for_restart(self) -> None:
+        error = RuntimeError("Target page, context or browser has been closed")
+        self.assertTrue(is_closed_playwright_error(error))
