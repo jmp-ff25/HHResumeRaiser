@@ -109,12 +109,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
+    LOGGER.info("Запускаю Chromium...")
     context = playwright.chromium.launch_persistent_context(
-        str(args.profile_dir), headless=args.headless, viewport=None, args=["--start-maximized"]
+        str(args.profile_dir),
+        headless=args.headless,
+        viewport=None,
+        args=["--start-maximized"],
+        timeout=30_000,
     )
+    LOGGER.info("Chromium запущен; проверяю авторизацию HH.")
     page = context.pages[0] if context.pages else context.new_page()
     capture = NetworkCapture()
     page.on("response", capture.observe)
+    interrupted = False
     try:
         login_if_needed(page, args)
         minimum_cooldown = timedelta(hours=args.minimum_cooldown_hours)
@@ -161,8 +168,12 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
             wait_for_due_time(
                 next_at, buffer_seconds=args.buffer_seconds, poll_seconds=args.poll_seconds
             )
+    except KeyboardInterrupt:
+        interrupted = True
+        raise
     finally:
-        close_context_quietly(context)
+        if not interrupted:
+            close_context_quietly(context)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -212,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
     args.profile_dir.mkdir(parents=True, exist_ok=True)
     while True:
         try:
+            LOGGER.info("Запускаю Playwright...")
             with sync_playwright() as playwright:
                 run_browser_context(playwright, args)
             return 0

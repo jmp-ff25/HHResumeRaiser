@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import signal
-import threading
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -236,10 +234,6 @@ class NetworkCapture:
 
 
 def close_context_quietly(context: BrowserContext) -> None:
-    previous_sigint_handler = None
-    if threading.current_thread() is threading.main_thread():
-        previous_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         context.close()
     except KeyboardInterrupt:
@@ -248,9 +242,6 @@ def close_context_quietly(context: BrowserContext) -> None:
         if not is_closed_playwright_error(error):
             raise
         LOGGER.debug("Browser context was already closed during shutdown: %s", error)
-    finally:
-        if previous_sigint_handler is not None:
-            signal.signal(signal.SIGINT, previous_sigint_handler)
 
 
 def is_closed_playwright_error(error: BaseException) -> bool:
