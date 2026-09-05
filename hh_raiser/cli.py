@@ -26,7 +26,6 @@ from hh_raiser.models import MOSCOW, PROFILE_URL
 from hh_raiser.reporting.activity_report import append_activity_results
 from hh_raiser.scheduling import format_wait_duration, seconds_until, wait_for_due_time
 from hh_raiser.service import run_cycle
-from hh_raiser.storage import resume_refresh_due_at
 
 
 def positive_seconds(value: str) -> int:
@@ -169,11 +168,7 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
         next_activity_at = datetime.now(MOSCOW) if activity_enabled else None
         resume_refresh_enabled = args.resume_index_refresh and not args.dry_run
         resume_refresh_interval = timedelta(seconds=args.resume_index_refresh_seconds)
-        next_resume_refresh_at = (
-            resume_refresh_due_at(args.profile_dir, resume_refresh_interval)
-            if resume_refresh_enabled
-            else None
-        )
+        next_resume_refresh_at = datetime.now(MOSCOW) if resume_refresh_enabled else None
         while True:
             next_at = run_cycle(
                 page,

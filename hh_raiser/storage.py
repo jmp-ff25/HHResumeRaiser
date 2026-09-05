@@ -69,12 +69,3 @@ def write_resume_refresh_attempt(profile_dir: Path, attempted_at: datetime) -> N
         json.dumps({"attempted_at": attempted_at.isoformat()}, ensure_ascii=False),
         encoding="utf-8",
     )
-
-
-def resume_refresh_due_at(profile_dir: Path, interval: timedelta) -> datetime:
-    try:
-        payload = json.loads(_resume_refresh_attempt_path(profile_dir).read_text(encoding="utf-8"))
-        last_attempt = datetime.fromisoformat(payload["attempted_at"])
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-        return datetime.now(MOSCOW)
-    return max(last_attempt + interval, datetime.now(MOSCOW))
