@@ -44,6 +44,9 @@ class CliTests(unittest.TestCase):
                 "--full-activity",
                 "--activity-interval-seconds",
                 "300",
+                "--resume-index-refresh",
+                "--resume-index-refresh-seconds",
+                "1800",
                 "--vacancies-per-cycle",
                 "3",
                 "--search-scrolls",
@@ -56,6 +59,8 @@ class CliTests(unittest.TestCase):
         )
         self.assertTrue(args.full_activity)
         self.assertEqual(args.activity_interval_seconds, 300)
+        self.assertTrue(args.resume_index_refresh)
+        self.assertEqual(args.resume_index_refresh_seconds, 1800)
         self.assertEqual(args.vacancies_per_cycle, 3)
         self.assertEqual(args.search_scrolls, 4)
         self.assertEqual(args.vacancy_scrolls, 3)
@@ -68,3 +73,13 @@ class CliTests(unittest.TestCase):
     def test_activity_interval_must_be_positive(self) -> None:
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
             build_parser().parse_args(["--activity-interval-seconds", "0"])
+
+    def test_resume_refresh_is_opt_in(self) -> None:
+        args = build_parser().parse_args([])
+
+        self.assertFalse(args.resume_index_refresh)
+        self.assertEqual(args.resume_index_refresh_seconds, 1800)
+
+    def test_resume_refresh_interval_must_be_positive(self) -> None:
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(["--resume-index-refresh-seconds", "0"])

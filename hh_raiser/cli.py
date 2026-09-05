@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from hh_raiser.activities.resume_index_refresher import refresh_resume_index
 from hh_raiser.application.orchestrator import ActivityOrchestrator
 from hh_raiser.browser import (
     NetworkCapture,
@@ -22,8 +23,10 @@ from hh_raiser.domain.policies import ActivityPolicy
 from hh_raiser.infrastructure.browser.playwright_browser import maximize_browser_window
 from hh_raiser.logging_config import LOGGER, configure_logging
 from hh_raiser.models import MOSCOW, PROFILE_URL
+from hh_raiser.reporting.activity_report import append_activity_results
 from hh_raiser.scheduling import format_wait_duration, seconds_until, wait_for_due_time
 from hh_raiser.service import run_cycle
+from hh_raiser.storage import resume_refresh_due_at
 
 
 def positive_seconds(value: str) -> int:
@@ -94,6 +97,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Интервал между циклами просмотра вакансий (по умолчанию 300 секунд).",
     )
     parser.add_argument(
+        "--resume-index-refresh",
+        action="store_true",
+        help="Раз в заданный интервал добавлять или удалять контрольную точку в опыте.",
+    )
+    parser.add_argument(
+        "--resume-index-refresh-seconds",
+        type=positive_seconds,
+        default=1_800,
+        help="Интервал смены версии резюме (по умолчанию 1800 секунд).",
+    )
+    parser.add_argument(
         "--vacancies-per-cycle",
         type=lambda value: bounded_non_negative_int(value, maximum=25),
         default=10,
@@ -146,12 +160,20 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
             scroll_pause_seconds=args.scroll_pause_seconds,
             vacancy_view_seconds=args.vacancy_view_seconds,
         )
+        report_path = args.profile_dir.parent / "activity-events.jsonl"
         orchestrator = ActivityOrchestrator(
             policy=activity_policy,
-            report_path=args.profile_dir.parent / "activity-events.jsonl",
+            report_path=report_path,
         )
         activity_enabled = args.full_activity and not args.dry_run
         next_activity_at = datetime.now(MOSCOW) if activity_enabled else None
+        resume_refresh_enabled = args.resume_index_refresh and not args.dry_run
+        resume_refresh_interval = timedelta(seconds=args.resume_index_refresh_seconds)
+        next_resume_refresh_at = (
+            resume_refresh_due_at(args.profile_dir, resume_refresh_interval)
+            if resume_refresh_enabled
+            else None
+        )
         while True:
             next_at = run_cycle(
                 page,
@@ -164,6 +186,20 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
             )
             if args.full_activity and args.dry_run:
                 LOGGER.info("--dry-run: дополнительные действия просмотра пропущены.")
+            if args.resume_index_refresh and args.dry_run:
+                LOGGER.info("--dry-run: обновление версии резюме пропущено.")
+            elif resume_refresh_enabled and (
+                next_resume_refresh_at is None or datetime.now(MOSCOW) >= next_resume_refresh_at
+            ):
+                refresh_result = refresh_resume_index(page, profile_dir=args.profile_dir)
+                append_activity_results(report_path, [refresh_result])
+                LOGGER.info(
+                    "Активность %s: %s — %s",
+                    refresh_result.action,
+                    refresh_result.status,
+                    refresh_result.detail,
+                )
+                next_resume_refresh_at = datetime.now(MOSCOW) + resume_refresh_interval
             elif activity_enabled and (
                 next_activity_at is None or datetime.now(MOSCOW) >= next_activity_at
             ):
@@ -190,15 +226,26 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
                     math.ceil((next_activity_at - datetime.now(MOSCOW)).total_seconds()),
                 )
                 wait_seconds = min(resume_wait_seconds, activity_wait_seconds)
+            if next_resume_refresh_at is not None:
+                refresh_wait_seconds = max(
+                    0,
+                    math.ceil((next_resume_refresh_at - datetime.now(MOSCOW)).total_seconds()),
+                )
+                wait_seconds = min(wait_seconds, refresh_wait_seconds)
             LOGGER.info(
                 "Следующая проверка через %s; часы сверяются каждые %s.",
                 format_wait_duration(wait_seconds),
                 format_wait_duration(args.poll_seconds),
             )
+            poll_intervals = [args.poll_seconds]
+            if activity_enabled:
+                poll_intervals.append(args.activity_interval_seconds)
+            if resume_refresh_enabled:
+                poll_intervals.append(args.resume_index_refresh_seconds)
             wait_for_due_time(
                 datetime.now(MOSCOW) + timedelta(seconds=wait_seconds),
                 buffer_seconds=0,
-                poll_seconds=min(args.poll_seconds, args.activity_interval_seconds),
+                poll_seconds=min(poll_intervals),
             )
     except KeyboardInterrupt:
         interrupted = True

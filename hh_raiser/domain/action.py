@@ -8,3 +8,4 @@ class ActivityKind(StrEnum):
     REVIEW_SEARCH = "review_search"
     VIEW_VACANCY = "view_vacancy"
     REVIEW_RESUME = "review_resume"
+    REFRESH_RESUME_INDEX = "refresh_resume_index"

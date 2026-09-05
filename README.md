@@ -78,6 +78,8 @@ password = replace-me
 - `--page-refresh-seconds` — watchdog зависшего или нераспознанного состояния страницы.
 - `--full-activity` — включить разрешённые действия просмотра;
 - `--activity-interval-seconds` — интервал циклов просмотра, по умолчанию 300 секунд;
+- `--resume-index-refresh` — включить обратимую смену контрольной точки в опыте;
+- `--resume-index-refresh-seconds` — интервал смены версии, по умолчанию 1800 секунд;
 - `--vacancies-per-cycle` — вакансий за цикл, по умолчанию 10 (0–25);
 - `--search-scrolls` — число прокруток выдачи (0–20);
 - `--vacancy-scrolls` — число прокруток внутри каждой вакансии (0–10);
@@ -98,11 +100,15 @@ password = replace-me
 
 ```powershell
 .\.venv\Scripts\python.exe hh_resume_raiser.py --headless --full-activity `
-  --activity-interval-seconds 300 --credentials-file .\hh-credentials.ini
+  --activity-interval-seconds 300 --resume-index-refresh `
+  --resume-index-refresh-seconds 1800 --credentials-file .\hh-credentials.ini
 ```
 
 Флаг `--once` в непрерывном режиме не используется. Общее число просмотренных
 вакансий не ограничено; `--vacancies-per-cycle` ограничивает только один цикл.
+Изменение версии резюме выключено по умолчанию и включается только явным флагом
+`--resume-index-refresh`. Программа хранит локально лишь контрольные суммы и
+никогда не записывает содержимое описания опыта в служебные файлы.
 
 Обезличенные результаты сохраняются в
 `.hh-resume-raiser/activity-events.jsonl`. URL вакансий, query-параметры,
