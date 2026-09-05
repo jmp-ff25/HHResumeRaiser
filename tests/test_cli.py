@@ -42,6 +42,8 @@ class CliTests(unittest.TestCase):
         args = build_parser().parse_args(
             [
                 "--full-activity",
+                "--activity-interval-seconds",
+                "300",
                 "--vacancies-per-cycle",
                 "3",
                 "--search-scrolls",
@@ -53,6 +55,7 @@ class CliTests(unittest.TestCase):
             ]
         )
         self.assertTrue(args.full_activity)
+        self.assertEqual(args.activity_interval_seconds, 300)
         self.assertEqual(args.vacancies_per_cycle, 3)
         self.assertEqual(args.search_scrolls, 4)
         self.assertEqual(args.vacancy_scrolls, 3)
@@ -60,4 +63,8 @@ class CliTests(unittest.TestCase):
 
     def test_activity_limits_are_bounded(self) -> None:
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
-            build_parser().parse_args(["--vacancies-per-cycle", "11"])
+            build_parser().parse_args(["--vacancies-per-cycle", "26"])
+
+    def test_activity_interval_must_be_positive(self) -> None:
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            build_parser().parse_args(["--activity-interval-seconds", "0"])

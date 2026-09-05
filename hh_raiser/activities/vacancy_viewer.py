@@ -19,13 +19,12 @@ def view_vacancies(
     page: Page, vacancy_urls: list[str], policy: ActivityPolicy
 ) -> list[ActivityResult]:
     results: list[ActivityResult] = []
-    selected_urls = vacancy_urls[: policy.vacancies_per_cycle]
-    for index, url in enumerate(selected_urls, start=1):
+    for index, url in enumerate(vacancy_urls, start=1):
         canonical = canonical_vacancy_url(url)
         if canonical is None:
             continue
         try:
-            LOGGER.info("Открываю вакансию %s из %s.", index, len(selected_urls))
+            LOGGER.info("Открываю вакансию %s из %s.", index, len(vacancy_urls))
             page.bring_to_front()
             page.goto(canonical, wait_until="domcontentloaded")
             heading = page.locator(VACANCY_HEADING)
@@ -38,7 +37,7 @@ def view_vacancies(
             description_visible = description.count() > 0 and description.first.is_visible()
             scrolls_completed = 0
             if description_visible:
-                LOGGER.info("Просматриваю содержимое вакансии %s из %s.", index, len(selected_urls))
+                LOGGER.info("Просматриваю содержимое вакансии %s из %s.", index, len(vacancy_urls))
                 for _ in range(policy.vacancy_scrolls):
                     page.locator("body").press("PageDown")
                     scrolls_completed += 1

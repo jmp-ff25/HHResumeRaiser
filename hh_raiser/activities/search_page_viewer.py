@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from hh_raiser.domain.action import ActivityKind
 from hh_raiser.domain.policies import ActivityPolicy
@@ -14,9 +15,12 @@ if TYPE_CHECKING:
 from playwright.sync_api import Error as PlaywrightError
 
 
-def view_search_page(page: Page, policy: ActivityPolicy) -> tuple[ActivityResult, list[str]]:
+def view_search_page(
+    page: Page, policy: ActivityPolicy, *, query: str, search_page: int
+) -> tuple[ActivityResult, list[str]]:
     try:
-        page.goto(SEARCH_URL, wait_until="domcontentloaded")
+        search_url = f"{SEARCH_URL}?{urlencode({'text': query, 'page': search_page})}"
+        page.goto(search_url, wait_until="domcontentloaded")
         cards = page.locator(VACANCY_CARD)
         links = page.locator(VACANCY_TITLE_LINK)
         collected: list[str] = []
@@ -45,6 +49,7 @@ def view_search_page(page: Page, policy: ActivityPolicy) -> tuple[ActivityResult
                     "card_count": card_count,
                     "vacancies_collected": len(collected),
                     "scrolls_completed": policy.search_scrolls,
+                    "search_page": search_page,
                 },
             ),
             collected,

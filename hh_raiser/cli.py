@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import subprocess
 import sys
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -20,7 +21,7 @@ from hh_raiser.browser import (
 from hh_raiser.domain.policies import ActivityPolicy
 from hh_raiser.infrastructure.browser.playwright_browser import maximize_browser_window
 from hh_raiser.logging_config import LOGGER, configure_logging
-from hh_raiser.models import PROFILE_URL
+from hh_raiser.models import MOSCOW, PROFILE_URL
 from hh_raiser.scheduling import format_wait_duration, seconds_until, wait_for_due_time
 from hh_raiser.service import run_cycle
 
@@ -87,9 +88,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="После проверки поднятия просмотреть выдачу, вакансии и структуру резюме.",
     )
     parser.add_argument(
+        "--activity-interval-seconds",
+        type=positive_seconds,
+        default=300,
+        help="Интервал между циклами просмотра вакансий (по умолчанию 300 секунд).",
+    )
+    parser.add_argument(
         "--vacancies-per-cycle",
-        type=lambda value: bounded_non_negative_int(value, maximum=10),
-        default=2,
+        type=lambda value: bounded_non_negative_int(value, maximum=25),
+        default=10,
     )
     parser.add_argument(
         "--search-scrolls",
@@ -143,6 +150,8 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
             policy=activity_policy,
             report_path=args.profile_dir.parent / "activity-events.jsonl",
         )
+        activity_enabled = args.full_activity and not args.dry_run
+        next_activity_at = datetime.now(MOSCOW) if activity_enabled else None
         while True:
             next_at = run_cycle(
                 page,
@@ -155,26 +164,41 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
             )
             if args.full_activity and args.dry_run:
                 LOGGER.info("--dry-run: дополнительные действия просмотра пропущены.")
-            elif args.full_activity:
+            elif activity_enabled and (
+                next_activity_at is None or datetime.now(MOSCOW) >= next_activity_at
+            ):
+                activity_started_at = datetime.now(MOSCOW)
                 results = orchestrator.run(page)
                 for result in results:
                     LOGGER.info(
                         "Активность %s: %s — %s", result.action, result.status, result.detail
                     )
+                next_activity_at = activity_started_at + timedelta(
+                    seconds=args.activity_interval_seconds
+                )
             if args.once:
                 return
-            wait_seconds = (
+            resume_wait_seconds = (
                 seconds_until(next_at, buffer_seconds=args.buffer_seconds)
                 if next_at
                 else args.poll_seconds
             )
+            wait_seconds = resume_wait_seconds
+            if next_activity_at is not None:
+                activity_wait_seconds = max(
+                    0,
+                    math.ceil((next_activity_at - datetime.now(MOSCOW)).total_seconds()),
+                )
+                wait_seconds = min(resume_wait_seconds, activity_wait_seconds)
             LOGGER.info(
                 "Следующая проверка через %s; часы сверяются каждые %s.",
                 format_wait_duration(wait_seconds),
                 format_wait_duration(args.poll_seconds),
             )
             wait_for_due_time(
-                next_at, buffer_seconds=args.buffer_seconds, poll_seconds=args.poll_seconds
+                datetime.now(MOSCOW) + timedelta(seconds=wait_seconds),
+                buffer_seconds=0,
+                poll_seconds=min(args.poll_seconds, args.activity_interval_seconds),
             )
     except KeyboardInterrupt:
         interrupted = True
