@@ -46,6 +46,8 @@ class CliTests(unittest.TestCase):
                 "3",
                 "--search-scrolls",
                 "4",
+                "--vacancy-scrolls",
+                "3",
                 "--vacancy-view-seconds",
                 "8.5",
             ]
@@ -53,6 +55,7 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.full_activity)
         self.assertEqual(args.vacancies_per_cycle, 3)
         self.assertEqual(args.search_scrolls, 4)
+        self.assertEqual(args.vacancy_scrolls, 3)
         self.assertEqual(args.vacancy_view_seconds, 8.5)
 
     def test_activity_limits_are_bounded(self) -> None:

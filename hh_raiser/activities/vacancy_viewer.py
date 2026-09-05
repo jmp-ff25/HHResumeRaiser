@@ -7,6 +7,7 @@ from hh_raiser.domain.policies import ActivityPolicy
 from hh_raiser.domain.result import ActivityResult, ActivityStatus
 from hh_raiser.infrastructure.browser.page_state_reader import canonical_vacancy_url
 from hh_raiser.infrastructure.hh.selectors import VACANCY_DESCRIPTION, VACANCY_HEADING
+from hh_raiser.logging_config import LOGGER
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -18,21 +19,30 @@ def view_vacancies(
     page: Page, vacancy_urls: list[str], policy: ActivityPolicy
 ) -> list[ActivityResult]:
     results: list[ActivityResult] = []
-    for url in vacancy_urls[: policy.vacancies_per_cycle]:
+    selected_urls = vacancy_urls[: policy.vacancies_per_cycle]
+    for index, url in enumerate(selected_urls, start=1):
         canonical = canonical_vacancy_url(url)
         if canonical is None:
             continue
         try:
+            LOGGER.info("Открываю вакансию %s из %s.", index, len(selected_urls))
+            page.bring_to_front()
             page.goto(canonical, wait_until="domcontentloaded")
             heading = page.locator(VACANCY_HEADING)
             if not heading.count():
                 heading = page.get_by_role("heading", level=1)
+            if heading.count():
+                heading.first.wait_for(state="visible", timeout=10_000)
             description = page.locator(VACANCY_DESCRIPTION)
             recognized = heading.count() > 0 and heading.first.is_visible()
             description_visible = description.count() > 0 and description.first.is_visible()
+            scrolls_completed = 0
             if description_visible:
-                page.locator("body").press("PageDown")
-                page.wait_for_timeout(round(policy.scroll_pause_seconds * 1_000))
+                LOGGER.info("Просматриваю содержимое вакансии %s из %s.", index, len(selected_urls))
+                for _ in range(policy.vacancy_scrolls):
+                    page.locator("body").press("PageDown")
+                    scrolls_completed += 1
+                    page.wait_for_timeout(round(policy.scroll_pause_seconds * 1_000))
             page.wait_for_timeout(round(policy.vacancy_view_seconds * 1_000))
             results.append(
                 ActivityResult(
@@ -43,7 +53,10 @@ def view_vacancies(
                         if recognized
                         else "Страница открыта, но заголовок вакансии не распознан."
                     ),
-                    metadata={"description_visible": description_visible},
+                    metadata={
+                        "description_visible": description_visible,
+                        "scrolls_completed": scrolls_completed,
+                    },
                 )
             )
         except PlaywrightError as error:

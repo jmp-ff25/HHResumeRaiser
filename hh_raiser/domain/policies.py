@@ -7,6 +7,7 @@ from dataclasses import dataclass
 class ActivityPolicy:
     vacancies_per_cycle: int = 2
     search_scrolls: int = 3
+    vacancy_scrolls: int = 2
     scroll_pause_seconds: float = 1.5
     vacancy_view_seconds: float = 12.0
 
@@ -15,6 +16,8 @@ class ActivityPolicy:
             raise ValueError("vacancies_per_cycle must be between 0 and 10")
         if not 0 <= self.search_scrolls <= 20:
             raise ValueError("search_scrolls must be between 0 and 20")
+        if not 0 <= self.vacancy_scrolls <= 10:
+            raise ValueError("vacancy_scrolls must be between 0 and 10")
         if not 0 <= self.scroll_pause_seconds <= 60:
             raise ValueError("scroll_pause_seconds must be between 0 and 60")
         if not 0 <= self.vacancy_view_seconds <= 300:

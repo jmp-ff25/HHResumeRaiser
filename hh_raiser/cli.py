@@ -18,6 +18,7 @@ from hh_raiser.browser import (
     wait_for_profile_content,
 )
 from hh_raiser.domain.policies import ActivityPolicy
+from hh_raiser.infrastructure.browser.playwright_browser import maximize_browser_window
 from hh_raiser.logging_config import LOGGER, configure_logging
 from hh_raiser.models import PROFILE_URL
 from hh_raiser.scheduling import format_wait_duration, seconds_until, wait_for_due_time
@@ -96,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
     )
     parser.add_argument(
+        "--vacancy-scrolls",
+        type=lambda value: bounded_non_negative_int(value, maximum=10),
+        default=2,
+    )
+    parser.add_argument(
         "--scroll-pause-seconds",
         type=lambda value: bounded_non_negative_float(value, maximum=60),
         default=1.5,
@@ -113,12 +119,13 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
     context = playwright.chromium.launch_persistent_context(
         str(args.profile_dir),
         headless=args.headless,
-        viewport=None,
+        no_viewport=True,
         args=["--start-maximized"],
         timeout=30_000,
     )
     LOGGER.info("Chromium запущен; проверяю авторизацию HH.")
     page = context.pages[0] if context.pages else context.new_page()
+    maximize_browser_window(context, page, headless=args.headless)
     capture = NetworkCapture()
     page.on("response", capture.observe)
     interrupted = False
@@ -128,6 +135,7 @@ def run_browser_context(playwright: object, args: argparse.Namespace) -> None:
         activity_policy = ActivityPolicy(
             vacancies_per_cycle=args.vacancies_per_cycle,
             search_scrolls=args.search_scrolls,
+            vacancy_scrolls=args.vacancy_scrolls,
             scroll_pause_seconds=args.scroll_pause_seconds,
             vacancy_view_seconds=args.vacancy_view_seconds,
         )
@@ -205,9 +213,14 @@ def main(argv: list[str] | None = None) -> int:
             sync_playwright() as playwright,
         ):
             context = playwright.chromium.launch_persistent_context(
-                temporary_dir, headless=args.headless, viewport=None, args=["--start-maximized"]
+                temporary_dir,
+                headless=args.headless,
+                no_viewport=True,
+                args=["--start-maximized"],
+                timeout=30_000,
             )
             page = context.pages[0] if context.pages else context.new_page()
+            maximize_browser_window(context, page, headless=args.headless)
             try:
                 login_if_needed(page, args)
                 page.goto(PROFILE_URL, wait_until="domcontentloaded")

@@ -17,6 +17,10 @@ class ActivityPolicyTests(unittest.TestCase):
     def test_accepts_disabled_vacancy_views(self) -> None:
         self.assertEqual(ActivityPolicy(vacancies_per_cycle=0).vacancies_per_cycle, 0)
 
+    def test_rejects_too_many_vacancy_scrolls(self) -> None:
+        with self.assertRaises(ValueError):
+            ActivityPolicy(vacancy_scrolls=11)
+
 
 class SafeUrlTests(unittest.TestCase):
     def test_redacts_query_fragment_and_numeric_identifier(self) -> None:
